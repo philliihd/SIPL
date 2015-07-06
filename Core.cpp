@@ -13,9 +13,10 @@ bool init = false;
 #ifdef USE_GTK
 GThread * gtkThread;
 int windowCount;
-GMutex * windowCountMutex;
-GMutex * initMutex;
-GCond * initCondition;
+static GMutex * windowCountMutex;
+static GMutex * initMutex;
+static GCond * initCondition;
+
 void * initGTK(void * t) {
     g_mutex_lock(initMutex);
 	init = true;
@@ -125,11 +126,8 @@ void quit(void) {
 
 void Init() {
 	if(!init) {
-        gdk_threads_init ();	
-        gtk_init(0, (char ***) "");
-        windowCountMutex = g_mutex_new();
-        initMutex = g_mutex_new();
-        initCondition = g_cond_new();
+        gdk_threads_init();	
+        gtk_init(0, NULL);
         windowCount = 0;
 		gtkThread = g_thread_new("main", initGTK, NULL);
 
