@@ -10,18 +10,21 @@
 
 namespace SIPL {
 bool init = false;
+bool endReached = false;
+
 #ifdef USE_GTK
 GThread * gtkThread;
 int windowCount;
-static GMutex * windowCountMutex;
-static GMutex * initMutex;
-static GCond * initCondition;
+static GMutex windowCountMutex;
+static GMutex initMutex;
+static GCond initCondition;
 
 void * initGTK(void * t) {
-    g_mutex_lock(initMutex);
+    g_mutex_lock(&initMutex);
 	init = true;
-    g_cond_signal(initCondition);
-    g_mutex_unlock(initMutex);
+    g_cond_signal(&initCondition);
+    g_mutex_unlock(&initMutex);
+
 	gdk_threads_enter ();
 	gtk_main();
     gdk_threads_leave();
@@ -97,26 +100,26 @@ int validateSlice(int slice, slice_plane direction, int3 size) {
 }
 #ifdef USE_GTK
 int getWindowCount() {
-    g_mutex_lock(windowCountMutex);
+    g_mutex_lock(&windowCountMutex);
     int wc = windowCount;
-    g_mutex_unlock(windowCountMutex);
+    g_mutex_unlock(&windowCountMutex);
     return wc;
 }
 int increaseWindowCount() {
-    g_mutex_lock(windowCountMutex);
+    g_mutex_lock(&windowCountMutex);
     windowCount++;
     int wc = windowCount;
-    g_mutex_unlock(windowCountMutex);
+    g_mutex_unlock(&windowCountMutex);
     return wc;
 }
 int decreaseWindowCount() {
-    g_mutex_lock(windowCountMutex);
+    g_mutex_lock(&windowCountMutex);
     windowCount--;
     int wc = windowCount;
-    g_mutex_unlock(windowCountMutex);
+    g_mutex_unlock(&windowCountMutex);
     return wc;
 }
-bool endReached = false;
+
 void quit(void) {
     endReached = true;
     if(getWindowCount() == 0)
@@ -126,14 +129,16 @@ void quit(void) {
 
 void Init() {
 	if(!init) {
-        gdk_threads_init();	
+        gdk_threads_init();
         gtk_init(0, NULL);
+
         windowCount = 0;
 		gtkThread = g_thread_new("main", initGTK, NULL);
 
+        g_mutex_lock(&initMutex);
         while(!init) // wait for the thread to be created
-            g_cond_wait(initCondition, initMutex);
-        g_mutex_unlock(initMutex);
+            g_cond_wait(&initCondition, &initMutex);
+        g_mutex_unlock(&initMutex);
         atexit(quit);
     }
 }
